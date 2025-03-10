@@ -22,9 +22,9 @@ class NewRelicTransaction
     /**
      * Set up a new transaction, with some sensible defaults.
      */
-    public function __construct(public bool $isActive = true)
+    public function __construct(public bool $isActive = true, bool | null $isBackground = null)
     {
-        $this->isBackground = app()->runningInConsole();
+        $this->isBackground = (is_null($isBackground)) ? app()->runningInConsole() : $isBackground;
     }
 
     /**
@@ -117,7 +117,7 @@ class NewRelicTransaction
     /**
      * Start the transaction with a given name.
      */
-    public function start(string $name): self
+    public function start(string $name, bool $shouldEnd = true): self
     {
         // If the same transaction is already active, continue.
         if ($this->isActive($name)) {
@@ -127,9 +127,17 @@ class NewRelicTransaction
         $this->isIgnored = false;
         $this->isActive = true;
 
-        $this->end();
+        if ($shouldEnd) {
+            $this->end();
+        }
+
         newrelic_start_transaction(config('new-relic.app_name'));
+
         $this->setName($name);
+
+        if (!$this->isBackground) {
+            newrelic_background_job(false);
+        }
 
         return $this;
     }

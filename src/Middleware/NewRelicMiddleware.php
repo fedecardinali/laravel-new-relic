@@ -29,7 +29,8 @@ class NewRelicMiddleware
         // Set the default transaction name for New Relic.
         // This will be executed before the request is handled, so we can't
         // yet resolve users or route names. We'll come back to that later.
-        app(NewRelicTransaction::class)
+        $transaction = new NewRelicTransaction(false);
+        $transaction = $transaction
             ->setName($this->requestName($request))
             // Record the IP address, if configured.
             ->addParameter(
@@ -38,16 +39,19 @@ class NewRelicMiddleware
             );
 
         // Tell the application to handle the incoming request before continuing...
-        $response = $next($request);
 
         // Skip further New Relic configuration if required.
         if ((request()->is($this->ignoredRoutes()))
             || (request()->routeIs($this->ignoredRoutes()))
             || (request()->fullUrlIs($this->ignoredRoutes()))) {
-            app(NewRelicTransaction::class)->ignore();
+            $transaction->ignore();
 
-            return $response;
+            return $next($request);
         }
+
+        $transaction = $transaction->start($this->requestName($request), false);
+        $response = $next($request);
+
 
         // With the response now prepared, we can access the authenticated user.
         if (config('new-relic.http.visitors.record_user_id')) {
@@ -55,7 +59,7 @@ class NewRelicMiddleware
         }
 
         // Add custom parameters to the transaction.
-        app(NewRelicTransaction::class)
+        $transaction
             ->addParameter(
                 'user_type',
                 $this->user instanceof Authenticatable ? 'User' : config('new-relic.http.visitors.guest_label')
@@ -65,9 +69,12 @@ class NewRelicMiddleware
             );
 
         // If the request name resolves differently, update it.
-        app(NewRelicTransaction::class)->setName($this->requestName($request));
+
+        $transaction = $transaction->setName($this->requestName($request));
 
         // Return the previous response and continue.
+
+        $transaction->end();
         return $response;
     }
 
