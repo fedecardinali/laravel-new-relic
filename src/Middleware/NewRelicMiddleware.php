@@ -29,7 +29,7 @@ class NewRelicMiddleware
         // Set the default transaction name for New Relic.
         // This will be executed before the request is handled, so we can't
         // yet resolve users or route names. We'll come back to that later.
-        $transaction = new NewRelicTransaction(false);
+        $transaction = new NewRelicTransaction(true, false);
         $transaction = $transaction
             ->setName($this->requestName($request))
             // Record the IP address, if configured.
